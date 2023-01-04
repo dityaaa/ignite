@@ -24,19 +24,16 @@ package config
 
 import (
 	"errors"
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
-
-	"github.com/c9845/fresher/version"
-	"gopkg.in/yaml.v2"
 )
 
 // DefaultConfigFileName is the typical name of the config file.
-const DefaultConfigFileName = "fresher.conf"
+const DefaultConfigFileName = "ignite.yaml"
 
 // File defines the list of configuration fields. The value for each field will be
 // set by a default or read from a config file. The config file is typically stored
@@ -283,30 +280,17 @@ func Read(path string, print bool) (err error) {
 
 // write writes a config to a file at the provided path.
 func (conf *File) write(path string) (err error) {
-	//Marshal to yaml.
 	y, err := yaml.Marshal(conf)
 	if err != nil {
 		return
 	}
 
-	//Create the file.
 	file, err := os.Create(path)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 
-	//Add some comments to config file so a human knows it was generated, not
-	//written by a human.
-	file.WriteString("#Generated config file for fresher.\n")
-	file.WriteString("#Generated at: " + time.Now().UTC().Format(time.RFC3339) + "\n")
-	file.WriteString("#Version: " + version.V + "\n")
-	file.WriteString("#This file is in YAML format.\n")
-	file.WriteString("\n")
-	file.WriteString("#***Do not delete this file!***\n")
-	file.WriteString("\n")
-
-	//Write config to file.
 	_, err = file.Write(y)
 	return
 }

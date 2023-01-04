@@ -26,4 +26,4 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-fresher.conf
+ignite.yaml

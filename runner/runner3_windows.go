@@ -1,6 +1,6 @@
 //go:build windows
 
-package runner3
+package runner
 
 func setRLimit() (err error) {
 	return nil

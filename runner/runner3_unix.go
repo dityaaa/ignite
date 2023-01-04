@@ -1,6 +1,6 @@
 //go:build unix
 
-package runner3
+package runner
 
 import (
 	"syscall"

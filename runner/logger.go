@@ -1,11 +1,11 @@
-package runner3
+package runner
 
 import (
 	"fmt"
+	"github.com/mattn/go-colorable"
 	"log"
 
-	"github.com/c9845/fresher/config"
-	"github.com/mattn/go-colorable"
+	"github.com/dityaaa/ignite/config"
 )
 
 // Loggers. Different colors for different things to stand out better. These are

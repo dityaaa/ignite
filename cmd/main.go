@@ -18,10 +18,10 @@ var (
 	flagConfigPath = flag.String("config", "./"+config.DefaultConfigFileName, "Path to the configuration file.")
 	flagAppVersion = flag.Bool("version", false, "Show ignite version.")
 	flagVerbose    = flag.Bool("verbose", false, "Verbose logging.")
+	flagBuildTags  = flag.String("tags", "", "Anything provided to 'go run' or 'go build' -tags.")
 )
 
 func main() {
-	tags := flag.String("tags", "", "Anything provided to 'go run' or 'go build' -tags.")
 	flag.Parse()
 
 	// Instantly exit when user only want to see current app version
@@ -50,11 +50,11 @@ func main() {
 	}
 
 	//Handle overriding config with flags.
-	if len(strings.TrimSpace(*tags)) > 0 {
+	if len(strings.TrimSpace(*flagBuildTags)) > 0 {
 		if !config.Data().UsingDefaults() {
 			log.Println("WARNING! (main) Overriding Tags with provided -tags.")
 		}
-		config.Data().OverrideTags(*tags)
+		config.Data().OverrideTags(*flagBuildTags)
 	}
 	if *flagVerbose {
 		config.Data().OverrideVerbose(*flagVerbose)
