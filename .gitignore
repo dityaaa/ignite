@@ -1,15 +1,13 @@
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
-
-.DS_Store
-tmp
-/fresh
-/runner.conf.dev
-
+/ignite
+*.exe
 *.o
 *.a
 *.so
 
 # Folders
+.DS_Store
+tmp
 _obj
 _test
 
@@ -25,5 +23,4 @@ _cgo_export.*
 
 _testmain.go
 
-*.exe
 ignite.yaml
