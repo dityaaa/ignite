@@ -87,6 +87,45 @@ func Watch() (err error) {
 		return err
 	}
 
+	dirWatcher := func(path string) error {
+		return filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+			// Handle errors related to the path. See fs.WalkDirFunc for more info.
+			if err != nil {
+				return err
+			}
+
+			// Only watch directories, not individual files.
+			if !d.IsDir() {
+				return nil
+			}
+
+			// Ignore directory if it is the temp directory where built binaries are stored
+			// before running. No need to watch this directory since it stores temp data
+			// from fresher.
+			yes, err := config.Data().IsTempDir(path)
+			if err != nil {
+				return err
+			}
+			if yes {
+				return fs.SkipDir
+			}
+
+			// Ignore directory if it is in list of ignored directories. Ignored directories
+			// listed in config file are based off of the WorkingDir. The path in the
+			// WalkDirFunc here is also based off of the WorkingDir, so therefore we can
+			// easily compare without having to handle absolute paths.
+			if config.Data().IsDirectoryToIgnore(path) {
+				warn.Verbosef("IGNORING %s", path)
+
+				return fs.SkipDir
+			}
+
+			// Add path to watcher.
+			events.Verbosef("Watching %s", path)
+			err = watcher.Add(path)
+			return err
+		})
+	}
 	// Add paths to watcher of the directories to watch for file changes. We watch
 	// directories, not individual files, for changes.
 	//
@@ -94,43 +133,7 @@ func Watch() (err error) {
 	// the directory fresher is being run in, checking if each directory should be
 	// watched or ignored (as set in config file), and adding the directory to the
 	// watcher.
-	err = filepath.WalkDir(config.Data().WorkingDir, func(path string, d fs.DirEntry, err error) error {
-		// Handle errors related to the path. See fs.WalkDirFunc for more info.
-		if err != nil {
-			return err
-		}
-
-		// Only watch directories, not individual files.
-		if !d.IsDir() {
-			return nil
-		}
-
-		// Ignore directory if it is the temp directory where built binaries are stored
-		// before running. No need to watch this directory since it stores temp data
-		// from fresher.
-		yes, err := config.Data().IsTempDir(path)
-		if err != nil {
-			return err
-		}
-		if yes {
-			return fs.SkipDir
-		}
-
-		// Ignore directory if it is in list of ignored directories. Ignored directories
-		// listed in config file are based off of the WorkingDir. The path in the
-		// WalkDirFunc here is also based off of the WorkingDir, so therefore we can
-		// easily compare without having to handle absolute paths.
-		if config.Data().IsDirectoryToIgnore(path) {
-			warn.Verbosef("IGNORING %s", path)
-
-			return fs.SkipDir
-		}
-
-		// Add path to watcher.
-		events.Verbosef("Watching %s", path)
-		err = watcher.Add(path)
-		return err
-	})
+	err = dirWatcher(config.Data().WorkingDir)
 	if err != nil && err != fs.SkipDir {
 		return
 	}
@@ -152,7 +155,7 @@ func Watch() (err error) {
 		// event is sent on the events channel causing the rebuild and/or rerun to
 		// occur.
 		//
-		// Taken from: https:// github.com/fsnotify/fsnotify/issues/122#issuecomment-1065925569
+		// Taken from: https://github.com/fsnotify/fsnotify/issues/122#issuecomment-1065925569
 		//
 		// Note the immediately below NewTimer related code. This just initiates the
 		// timer and reads the first expiration so the timer can be reset when events
@@ -172,6 +175,19 @@ func Watch() (err error) {
 				// Ignore event on certain events.
 				if event.Op == fsnotify.Chmod {
 					continue
+				}
+
+				if event.Op == fsnotify.Rename {
+					if fileInfo, err := os.Stat(event.Name); err == nil && fileInfo.IsDir() {
+						_ = watcher.Remove(event.Name)
+					}
+				}
+
+				if event.Op == fsnotify.Create {
+					err = dirWatcher(event.Name)
+					if err != nil && err != fs.SkipDir {
+						panic(err)
+					}
 				}
 
 				// Skip sending event if a non-watched file is changed.
