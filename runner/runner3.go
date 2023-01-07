@@ -183,10 +183,64 @@ func Watch() (err error) {
 					}
 				}
 
+				if event.Op == fsnotify.Remove {
+					_ = watcher.Remove(event.Name)
+					eventsChan <- fsnotify.Event{
+						Name: event.Name,
+						Op:   fsnotify.Write,
+					}
+				}
+
 				if event.Op == fsnotify.Create {
-					err = dirWatcher(event.Name)
+					watchedFileExists := false
+					err = filepath.WalkDir(event.Name, func(path string, d fs.DirEntry, err error) error {
+						// Handle errors related to the path. See fs.WalkDirFunc for more info.
+						if err != nil {
+							return err
+						}
+
+						// Only watch directories, not individual files.
+						if !d.IsDir() && config.Data().IsExtensionToWatch(filepath.Ext(path)) {
+							watchedFileExists = true
+							return nil
+						}
+
+						// Ignore directory if it is the temp directory where built binaries are stored
+						// before running. No need to watch this directory since it stores temp data
+						// from fresher.
+						yes, err := config.Data().IsTempDir(path)
+						if err != nil {
+							return err
+						}
+						if yes {
+							return fs.SkipDir
+						}
+
+						// Ignore directory if it is in list of ignored directories. Ignored directories
+						// listed in config file are based off of the WorkingDir. The path in the
+						// WalkDirFunc here is also based off of the WorkingDir, so therefore we can
+						// easily compare without having to handle absolute paths.
+						if config.Data().IsDirectoryToIgnore(path) {
+							warn.Verbosef("IGNORING %s", path)
+
+							return fs.SkipDir
+						}
+
+						// Add path to watcher.
+						events.Verbosef("Watching %s", path)
+						err = watcher.Add(path)
+						return err
+					})
+
 					if err != nil && err != fs.SkipDir {
 						panic(err)
+					}
+
+					if watchedFileExists {
+						eventsChan <- fsnotify.Event{
+							Name: event.Name,
+							Op:   fsnotify.Write,
+						}
 					}
 				}
 
